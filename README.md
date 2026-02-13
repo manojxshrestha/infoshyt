@@ -54,11 +54,17 @@ That's it — you're all set!
 ## 🚀 Usage
 
 ```bash
-./infoshyt.sh -d <domain_or_ip> [-D]
+# Domain scan
+./infoshyt.sh -d <domain> [-D]
+
+# Hudson Rock searches (without full OSINT scan)
+./infoshyt.sh --username <user>
+./infoshyt.sh --email <email>
+./infoshyt.sh --phone <number>
 ```
 
 Results will be saved in:
-- Directory: `results/example.com/osint/`
+- Directory: `results/example.com/`
 - Archive: `results/example.com/results.tar.gz`
 
 ## 🛠️ OSINT Functions
@@ -73,7 +79,7 @@ Results will be saved in:
 | `github_repos` | Repository enumeration & secret detection | `github_company_secrets.json` |
 | `metadata` | Metadata extraction from public files | `metadata_results.txt` |
 | `apileaks` | API leaks (Postman/Swagger) | `postman_leaks.txt`, `swagger_leaks.txt` |
-| `hudson_rock` | Infostealer malware intelligence | `hudson_rock_domain.json`, `hudson_rock.txt` |
+| `hudson_rock` | Infostealer malware intelligence (domain/username/email/phone) | `hudson_rock.txt`, `hudson_rock_*.json` |
 | `third_party_misconfigs` | Third-party service misconfigs | `3rdparts_misconfigurations.txt` |
 | `spoof` | SPF/DMARC spoofing check | `spoof.txt` |
 | `mail_hygiene` | SPF/DMARC configuration review | `mail_hygiene.txt` |
@@ -97,8 +103,11 @@ results/
         ├── emails.txt
         ├── gitdorks.txt
         ├── github_company_secrets.json
-        ├── hudson_rock_domain.json
         ├── hudson_rock.txt
+        ├── hudson_rock_domain.json
+        ├── hudson_rock_username.json
+        ├── hudson_rock_email.json
+        ├── hudson_rock_phone.json
         ├── mail_hygiene.txt
         ├── metadata_results.txt
         ├── passwords.txt
