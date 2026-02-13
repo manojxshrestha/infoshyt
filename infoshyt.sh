@@ -7,6 +7,8 @@
 reset='\033[0m'
 bred='\033[1;31m'
 yellow='\033[1;33m'
+cyan='\033[1;36m'
+green='\033[0;32m'
 
 # Variables
 LOGFILE="infoshyt.log"
@@ -126,7 +128,7 @@ end_func() {
 }
 
 # Banner
-echo -e "
+echo -e "${cyan}
  ▄▀▀█▀▄    ▄▀▀▄ ▀▄  ▄▀▀▀█▄    ▄▀▀▀▀▄   ▄▀▀▀▀▄  ▄▀▀▄ ▄▄   ▄▀▀▄ ▀▀▄  ▄▀▀▀█▀▀▄ 
 █   █  █  █  █ █ █ █  ▄▀  ▀▄ █      █ █ █   ▐ █  █   ▄▀ █   ▀▄ ▄▀ █    █  ▐ 
 ▐   █  ▐  ▐  █  ▀█ ▐ █▄▄▄▄   █      █    ▀▄   ▐  █▄▄▄█  ▐     █   ▐   █     
@@ -137,7 +139,7 @@ echo -e "
          
                     OSINT Reconnaissance Tool                    
                                     by ~/.manojxshrestha             
-"
+${reset}"
 
 # Start OSINT scan
 echo -e "${yellow}[$(date +'%Y-%m-%d %H:%M:%S %z')] [START] OSINT scan for $domain${reset}"
