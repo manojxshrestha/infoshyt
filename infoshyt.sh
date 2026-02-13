@@ -34,23 +34,76 @@ DIFF=false
 DEEP=false
 INTERLACE_THREADS=10
 
+# Hudson Rock search targets
+HUDSON_DOMAIN=""
+HUDSON_EMAIL=""
+HUDSON_USERNAME=""
+HUDSON_PHONE=""
+
 # Parse command line arguments
-while getopts "d:D" opt; do
-    case $opt in
-        d) domain="$OPTARG";;
-        D) DIFF=true;;
-        ?) echo "Usage: $0 -d <domain> [-D]"; exit 1;;
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        -d=*)
+            domain="${1#*=}"
+            ;;
+        -d)
+            domain="$2"
+            shift
+            ;;
+        -D)
+            DIFF=true
+            ;;
+        --username=*)
+            HUDSON_USERNAME="${1#*=}"
+            ;;
+        --username)
+            HUDSON_USERNAME="$2"
+            shift
+            ;;
+        --email=*)
+            HUDSON_EMAIL="${1#*=}"
+            ;;
+        --email)
+            HUDSON_EMAIL="$2"
+            shift
+            ;;
+        --phone=*)
+            HUDSON_PHONE="${1#*=}"
+            ;;
+        --phone)
+            HUDSON_PHONE="$2"
+            shift
+            ;;
     esac
+    shift
 done
 
 # Check if domain is provided
-if [ -z "$domain" ]; then
-    echo "Usage: $0 -d <domain> [-D]"
+if [ -z "$domain" ] && [ -z "$HUDSON_EMAIL" ] && [ -z "$HUDSON_USERNAME" ] && [ -z "$HUDSON_PHONE" ]; then
+    echo "Usage: $0 -d <domain> [--username <user> --email <email> --phone <number>] [-D]"
+    echo ""
+    echo "Options:"
+    echo "  -d <domain>        Target domain"
+    echo "  --username <user>  Search by username"
+    echo "  --email <email>    Search by email"
+    echo "  --phone <number>   Search by phone number"
+    echo "  -D                 Force re-run (diff mode)"
     exit 1
 fi
 
 # Set directory structure
-dir="$PWD/results/$domain"
+if [[ -n "$domain" ]]; then
+    dir="$PWD/results/$domain"
+else
+    # Use first available target as directory name
+    if [[ -n "$HUDSON_EMAIL" ]]; then
+        dir="$PWD/results/email_${HUDSON_EMAIL}"
+    elif [[ -n "$HUDSON_USERNAME" ]]; then
+        dir="$PWD/results/user_${HUDSON_USERNAME}"
+    elif [[ -n "$HUDSON_PHONE" ]]; then
+        dir="$PWD/results/phone_${HUDSON_PHONE}"
+    fi
+fi
 called_fn_dir="$dir"
 mkdir -p "$dir" "$dir/.tmp" 2>>"$LOGFILE"
 echo -e "${yellow}[$(date +'%Y-%m-%d %H:%M:%S %z')] [INFO] Using directory: $dir${reset}" >>"$LOGFILE"
@@ -656,28 +709,73 @@ function zonetransfer() {
 function hudson_rock() {
     mkdir -p "$dir"
 
-    if { [[ ! -f "$called_fn_dir/.${FUNCNAME[0]}" ]] || [[ $DIFF == true ]]; } && [[ $HUDSON_ROCK == true ]] && [[ $OSINT == true ]] && ! [[ $domain =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+    if { [[ ! -f "$called_fn_dir/.${FUNCNAME[0]}" ]] || [[ $DIFF == true ]]; } && [[ $HUDSON_ROCK == true ]] && [[ $OSINT == true ]]; then
         start_func "${FUNCNAME[0]}" "Searching Hudson Rock Infostealer Intelligence"
 
-        # Domain search
-        curl -s "https://cavalier.hudsonrock.com/api/json/v2/osint-tools/search-by-domain?domain=${domain}" >"$dir/hudson_rock_domain.json" 2>>"$LOGFILE"
-
-        # Parse and save readable output
-        if [[ -s "$dir/hudson_rock_domain.json" ]]; then
-            {
-                echo "=== Hudson Rock Infostealer Intelligence ==="
-                echo "Domain: $domain"
-                echo ""
-                jq -r '.[] | "Compromised Credentials Found: \(.infected_computers // 0)\nStealer Type: \(.stealer_type // "N/A")\nFirst Seen: \(.first_seen // "N/A")\nLast Seen: \(.last_seen // "N/A")\n"' "$dir/hudson_rock_domain.json" 2>>"$LOGFILE" || true
-            } >"$dir/hudson_rock.txt" 2>>"$LOGFILE"
+        # Check if any Hudson Rock target is provided
+        local has_target=false
+        
+        # Domain search (default if domain is provided)
+        if [[ -n "$domain" ]] && [[ ! "$domain" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            curl -s "https://cavalier.hudsonrock.com/api/json/v2/osint-tools/search-by-domain?domain=${domain}" >"$dir/hudson_rock_domain.json" 2>>"$LOGFILE"
+            has_target=true
+        fi
+        
+        # Username search
+        if [[ -n "$HUDSON_USERNAME" ]]; then
+            curl -s "https://cavalier.hudsonrock.com/api/json/v2/osint-tools/search-by-username?username=${HUDSON_USERNAME}" >"$dir/hudson_rock_username.json" 2>>"$LOGFILE"
+            has_target=true
+        fi
+        
+        # Email search
+        if [[ -n "$HUDSON_EMAIL" ]]; then
+            curl -s "https://cavalier.hudsonrock.com/api/json/v2/osint-tools/search-by-email?email=${HUDSON_EMAIL}" >"$dir/hudson_rock_email.json" 2>>"$LOGFILE"
+            has_target=true
+        fi
+        
+        # Phone search
+        if [[ -n "$HUDSON_PHONE" ]]; then
+            curl -s "https://cavalier.hudsonrock.com/api/json/v2/osint-tools/search-by-username?username=${HUDSON_PHONE}" >"$dir/hudson_rock_phone.json" 2>>"$LOGFILE"
+            has_target=true
         fi
 
-        end_func "Results are saved in $domain/osint/hudson_rock_domain.json and hudson_rock.txt" "${FUNCNAME[0]}"
+        # Parse and save readable output
+        {
+            echo "=== Hudson Rock Infostealer Intelligence ==="
+            
+            # Domain results
+            if [[ -s "$dir/hudson_rock_domain.json" ]]; then
+                echo ""
+                echo "=== Domain: $domain ==="
+                jq -r '.stealers[]? // .[]? | "Computer: \(.computer_name // "N/A")\nOS: \(.operating_system // "N/A")\nStealer: \(.stealer_family // "N/A")\nDate Compromised: \(.date_compromised // "N/A")\nIP: \(.ip // "N/A")\nTop Passwords: \(.top_passwords[:3] | join(", ") // "N/A")\nTop Logins: \(.top_logins[:3] | join(", ") // "N/A")\n"' "$dir/hudson_rock_domain.json" 2>>"$LOGFILE" || true
+            fi
+            
+            # Username results
+            if [[ -s "$dir/hudson_rock_username.json" ]]; then
+                echo ""
+                echo "=== Username: $HUDSON_USERNAME ==="
+                jq -r '.stealers[]? // .[]? | "Computer: \(.computer_name // "N/A")\nOS: \(.operating_system // "N/A")\nStealer: \(.stealer_family // "N/A")\nDate Compromised: \(.date_compromised // "N/A")\nIP: \(.ip // "N/A")\nTop Passwords: \(.top_passwords[:3] | join(", ") // "N/A")\nTop Logins: \(.top_logins[:3] | join(", ") // "N/A")\n"' "$dir/hudson_rock_username.json" 2>>"$LOGFILE" || true
+            fi
+            
+            # Email results
+            if [[ -s "$dir/hudson_rock_email.json" ]]; then
+                echo ""
+                echo "=== Email: $HUDSON_EMAIL ==="
+                jq -r '.stealers[]? // .[]? | "Computer: \(.computer_name // "N/A")\nOS: \(.operating_system // "N/A")\nStealer: \(.stealer_family // "N/A")\nDate Compromised: \(.date_compromised // "N/A")\nIP: \(.ip // "N/A")\nTop Passwords: \(.top_passwords[:3] | join(", ") // "N/A")\nTop Logins: \(.top_logins[:3] | join(", ") // "N/A")\n"' "$dir/hudson_rock_email.json" 2>>"$LOGFILE" || true
+            fi
+            
+            # Phone results
+            if [[ -s "$dir/hudson_rock_phone.json" ]]; then
+                echo ""
+                echo "=== Phone: $HUDSON_PHONE ==="
+                jq -r '.stealers[]? // .[]? | "Computer: \(.computer_name // "N/A")\nOS: \(.operating_system // "N/A")\nStealer: \(.stealer_family // "N/A")\nDate Compromised: \(.date_compromised // "N/A")\nIP: \(.ip // "N/A")\nTop Passwords: \(.top_passwords[:3] | join(", ") // "N/A")\nTop Logins: \(.top_logins[:3] | join(", ") // "N/A")\n"' "$dir/hudson_rock_phone.json" 2>>"$LOGFILE" || true
+            fi
+        } >"$dir/hudson_rock.txt" 2>>"$LOGFILE"
+
+        end_func "Results are saved in $domain/hudson_rock.txt and hudson_rock_*.json" "${FUNCNAME[0]}"
     else
         if [[ $HUDSON_ROCK == false ]] || [[ $OSINT == false ]]; then
             printf "\n%b[%s] %s skipped due to mode or configuration settings.%b\n" "$yellow" "$(date +'%Y-%m-%d %H:%M:%S %z')" "${FUNCNAME[0]}" "$reset"
-        elif [[ $domain =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-            return
         else
             printf "%b[%s] %s has already been processed. To force execution, delete:\n    %s/.%s %b\n\n" "$yellow" "$(date +'%Y-%m-%d %H:%M:%S %z')" "${FUNCNAME[0]}" "$called_fn_dir" "${FUNCNAME[0]}" "$reset"
         fi
