@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # infoshyt - OSINT Reconnaissance Tool
-# Usage: ./infoshyt.sh -d <domain>
+# Usage: ./infoshyt.sh -d <domain> [-D]
 
 # Colors
 reset='\033[0m'
@@ -25,6 +25,11 @@ DOMAIN_INFO=true
 THIRD_PARTIES=true
 SPOOF=true
 IP_INFO=true
+MAIL_HYGIENE=true
+CLOUD_ENUM=true
+FAVICON=true
+ZONETRANSFER=true
+HUDSON_ROCK=true
 DIFF=false
 DEEP=false
 INTERLACE_THREADS=10
@@ -498,6 +503,140 @@ function ip_info() {
     fi
 }
 
+function mail_hygiene() {
+    mkdir -p "$dir/osint"
+
+    if { [[ ! -f "$called_fn_dir/.${FUNCNAME[0]}" ]] || [[ $DIFF == true ]]; } && [[ $MAIL_HYGIENE == true ]] && [[ $OSINT == true ]] && ! [[ $domain =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+        start_func "${FUNCNAME[0]}" "Mail hygiene (SPF/DMARC)"
+
+        {
+            printf "Domain: %s\n" "$domain"
+            printf "\nTXT records:\n"
+            dig +short TXT "$domain" | sed 's/^/  /'
+            printf "\nDMARC record:\n"
+            dig +short TXT "_dmarc.$domain" | sed 's/^/  /'
+        } >"$dir/osint/mail_hygiene.txt" 2>>"$LOGFILE"
+
+        end_func "Results are saved in $domain/osint/mail_hygiene.txt" "${FUNCNAME[0]}"
+    else
+        if [[ $MAIL_HYGIENE == false ]] || [[ $OSINT == false ]]; then
+            printf "\n%b[%s] %s skipped due to mode or configuration settings.%b\n" "$yellow" "$(date +'%Y-%m-%d %H:%M:%S %z')" "${FUNCNAME[0]}" "$reset"
+        elif [[ $domain =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            return
+        else
+            printf "%b[%s] %s has already been processed. To force execution, delete:\n    %s/.%s %b\n\n" "$yellow" "$(date +'%Y-%m-%d %H:%M:%S %z')" "${FUNCNAME[0]}" "$called_fn_dir" "${FUNCNAME[0]}" "$reset"
+        fi
+    fi
+}
+
+function cloud_enum_scan() {
+    mkdir -p "$dir/osint"
+
+    if { [[ ! -f "$called_fn_dir/.${FUNCNAME[0]}" ]] || [[ $DIFF == true ]]; } && [[ $CLOUD_ENUM == true ]] && [[ $OSINT == true ]] && ! [[ $domain =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+        start_func "${FUNCNAME[0]}" "Cloud storage enumeration"
+
+        company_name=$(echo "$domain" | unfurl format %r)
+        cloud_enum -k "$company_name" -k "$domain" -k "${domain%%.*}" 2>>"$LOGFILE" | anew -q "$dir/osint/cloud_enum.txt"
+
+        end_func "Results are saved in $domain/osint/cloud_enum.txt" "${FUNCNAME[0]}"
+    else
+        if [[ $CLOUD_ENUM == false ]] || [[ $OSINT == false ]]; then
+            printf "\n%b[%s] %s skipped due to mode or configuration settings.%b\n" "$yellow" "$(date +'%Y-%m-%d %H:%M:%S %z')" "${FUNCNAME[0]}" "$reset"
+        elif [[ $domain =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            return
+        else
+            printf "%b[%s] %s has already been processed. To force execution, delete:\n    %s/.%s %b\n\n" "$yellow" "$(date +'%Y-%m-%d %H:%M:%S %z')" "${FUNCNAME[0]}" "$called_fn_dir" "${FUNCNAME[0]}" "$reset"
+        fi
+    fi
+}
+
+function favicon() {
+    mkdir -p "$dir/hosts" "$dir/.tmp/virtualhosts"
+
+    if { [[ ! -f "$called_fn_dir/.${FUNCNAME[0]}" ]] || [[ $DIFF == true ]]; } && [[ $FAVICON == true ]] && ! [[ $domain =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+        start_func "${FUNCNAME[0]}" "Favicon IP Lookup"
+
+        if ! pushd "${tools}/fav-up" >/dev/null; then
+            printf "%b[!] Failed to change directory to %s in %s @ line %s.%b\n" "$bred" "${tools}/fav-up" "${FUNCNAME[0]}" "${LINENO}" "$reset"
+            return 1
+        fi
+
+        timeout 10m "${tools}/fav-up/venv/bin/python3" "${tools}/fav-up/favUp.py" -w "$domain" -sc -o "$dir/hosts/favicontest.json" 2>>"$LOGFILE" >/dev/null
+
+        if [[ -s "$dir/hosts/favicontest.json" ]]; then
+            jq -r 'try .found_ips' "$dir/hosts/favicontest.json" 2>>"$LOGFILE" | grep -v "not-found" >"$dir/hosts/favicontest.txt"
+        fi
+
+        if ! popd >/dev/null; then
+            printf "%b[!] Failed to return to previous directory in %s at line %s.%b\n" "$bred" "${FUNCNAME[0]}" "$LINENO" "$reset"
+            return 1
+        fi
+
+        end_func "Results are saved in $domain/hosts/favicontest.txt" "${FUNCNAME[0]}"
+    else
+        if [[ $FAVICON == false ]]; then
+            printf "\n%b[%s] %s skipped due to mode or configuration settings.%b\n" "$yellow" "$(date +'%Y-%m-%d %H:%M:%S %z')" "${FUNCNAME[0]}" "$reset"
+        elif [[ $domain =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            return
+        else
+            printf "%b[%s] %s has already been processed. To force execution, delete:\n    %s/.%s %b\n\n" "$yellow" "$(date +'%Y-%m-%d %H:%M:%S %z')" "${FUNCNAME[0]}" "$called_fn_dir" "${FUNCNAME[0]}" "$reset"
+        fi
+    fi
+}
+
+function zonetransfer() {
+    mkdir -p "$dir/subdomains"
+
+    if { [[ ! -f "$called_fn_dir/.${FUNCNAME[0]}" ]] || [[ $DIFF == true ]]; } && [[ $ZONETRANSFER == true ]] && ! [[ $domain =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+        start_func "${FUNCNAME[0]}" "Zone transfer check"
+
+        for ns in $(dig +short ns "$domain" 2>>"$LOGFILE"); do
+            dig axfr "${domain}" @"$ns" 2>>"$LOGFILE" | tee -a "$dir/subdomains/zonetransfer.txt" >/dev/null
+        done
+
+        end_func "Results are saved in $domain/subdomains/zonetransfer.txt" "${FUNCNAME[0]}"
+    else
+        if [[ $ZONETRANSFER == false ]]; then
+            printf "\n%b[%s] %s skipped due to mode or configuration settings.%b\n" "$yellow" "$(date +'%Y-%m-%d %H:%M:%S %z')" "${FUNCNAME[0]}" "$reset"
+        elif [[ $domain =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            return
+        else
+            printf "%b[%s] %s has already been processed. To force execution, delete:\n    %s/.%s %b\n\n" "$yellow" "$(date +'%Y-%m-%d %H:%M:%S %z')" "${FUNCNAME[0]}" "$called_fn_dir" "${FUNCNAME[0]}" "$reset"
+        fi
+    fi
+}
+
+function hudson_rock() {
+    mkdir -p "$dir/osint"
+
+    if { [[ ! -f "$called_fn_dir/.${FUNCNAME[0]}" ]] || [[ $DIFF == true ]]; } && [[ $HUDSON_ROCK == true ]] && [[ $OSINT == true ]] && ! [[ $domain =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+        start_func "${FUNCNAME[0]}" "Searching Hudson Rock Infostealer Intelligence"
+
+        # Domain search
+        curl -s "https://cavalier.hudsonrock.com/api/json/v2/osint-tools/search-by-domain?domain=${domain}" >"$dir/osint/hudson_rock_domain.json" 2>>"$LOGFILE"
+
+        # Parse and save readable output
+        if [[ -s "$dir/osint/hudson_rock_domain.json" ]]; then
+            {
+                echo "=== Hudson Rock Infostealer Intelligence ==="
+                echo "Domain: $domain"
+                echo ""
+                jq -r '.[] | "Compromised Credentials Found: \(.infected_computers // 0)\nStealer Type: \(.stealer_type // "N/A")\nFirst Seen: \(.first_seen // "N/A")\nLast Seen: \(.last_seen // "N/A")\n"' "$dir/osint/hudson_rock_domain.json" 2>>"$LOGFILE" || true
+            } >"$dir/osint/hudson_rock.txt" 2>>"$LOGFILE"
+        fi
+
+        end_func "Results are saved in $domain/osint/hudson_rock_domain.json and hudson_rock.txt" "${FUNCNAME[0]}"
+    else
+        if [[ $HUDSON_ROCK == false ]] || [[ $OSINT == false ]]; then
+            printf "\n%b[%s] %s skipped due to mode or configuration settings.%b\n" "$yellow" "$(date +'%Y-%m-%d %H:%M:%S %z')" "${FUNCNAME[0]}" "$reset"
+        elif [[ $domain =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            return
+        else
+            printf "%b[%s] %s has already been processed. To force execution, delete:\n    %s/.%s %b\n\n" "$yellow" "$(date +'%Y-%m-%d %H:%M:%S %z')" "${FUNCNAME[0]}" "$called_fn_dir" "${FUNCNAME[0]}" "$reset"
+        fi
+    fi
+}
+
 # Execute OSINT functions
 google_dorks
 github_dorks
@@ -505,10 +644,15 @@ github_repos
 metadata
 apileaks
 emails
+hudson_rock
 domain_info
 third_party_misconfigs
 spoof
 ip_info
+mail_hygiene
+cloud_enum_scan
+favicon
+zonetransfer
 
 # End OSINT scan
 echo -e "${yellow}[$(date +'%Y-%m-%d %H:%M:%S %z')] [END] OSINT scan completed for $domain${reset}"

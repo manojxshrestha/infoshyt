@@ -46,16 +46,16 @@ validate_github_token() {
     fi
 }
 
-# Validate GitLab token format (starts with glpat- and is 20-40 chars after prefix)
+# Validate GitLab token format (starts with glpat-)
 validate_gitlab_token() {
     local token="$1"
-    # Trim whitespace and check for glpat- followed by 20-40 alphanumeric or underscore chars
+    # Trim whitespace and check for glpat- followed by 20-60 alphanumeric, underscore, hyphen, or period chars
     token=$(echo "$token" | tr -d '[:space:]')
-    if [[ "$token" =~ ^glpat-[A-Za-z0-9_-]{20,40}$ ]]; then
+    if [[ "$token" =~ ^glpat-[A-Za-z0-9_.-]{20,60}$ ]]; then
         return 0
     else
         echo -e "${RED}[ERROR] Invalid token format: $token${RESET}"
-        echo -e "${YELLOW}GitLab tokens must start with 'glpat-' and be 20-40 characters long after the prefix (e.g., glpat-xxxxxxxxxxxxxxxxxxxxxxxx).${RESET}"
+        echo -e "${YELLOW}GitLab tokens must start with 'glpat-' (e.g., glpat-xxxxxxxxxxxxxxxxxxxxxxxx).${RESET}"
         return 1
     fi
 }
@@ -71,7 +71,7 @@ fi
 
 # Prompt for GitLab token
 echo -e "${GREEN}[INFO] Enter a GitLab token${RESET}"
-echo -e "${YELLOW}Get token at https://gitlab.com/-/profile/personal_access_tokens${RESET}"
+echo -e "${YELLOW}Get token at https://gitlab.com/-/user_settings/personal_access_tokens (scopes: read_api, read_repository)${RESET}"
 read -rp "GitLab Token: " GITLAB_TOKEN
 if ! validate_gitlab_token "$GITLAB_TOKEN"; then
     echo -e "${RED}[ERROR] Configuration aborted due to invalid GitLab token.${RESET}"
@@ -124,6 +124,13 @@ DOMAIN_INFO=true
 THIRD_PARTIES=true
 SPOOF=true
 IP_INFO=true
+MAIL_HYGIENE=true
+CLOUD_ENUM=true
+FAVICON=true
+ZONETRANSFER=true
+HUDSON_ROCK=true
+EOF
+ZONETRANSFER=true
 EOF
 chmod 600 "$CONFIG_FILE"
 
