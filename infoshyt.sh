@@ -122,8 +122,8 @@ start_func() {
 end_func() {
     local message=$1
     local func_name=$2
-    printf "%b[%s] [END] %s%b\n" "$yellow" "$(date +'%Y-%m-%d %H:%M:%S %z')" "$message" "$reset" >>"$LOGFILE"
-    echo -e "${yellow}[$(date +'%Y-%m-%d %H:%M:%S %z')] [END] $message${reset}"
+    printf "%b[%s] [END] %s%b\n" "$green" "$(date +'%Y-%m-%d %H:%M:%S %z')" "$message" "$reset" >>"$LOGFILE"
+    echo -e "${green}[$(date +'%Y-%m-%d %H:%M:%S %z')] [END] $message${reset}"
     touch "$called_fn_dir/.${func_name}"
 }
 
