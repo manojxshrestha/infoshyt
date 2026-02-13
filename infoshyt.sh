@@ -647,7 +647,7 @@ function cloud_enum_scan() {
 }
 
 function favicon() {
-    mkdir -p "$dir/hosts" "$dir/.tmp/virtualhosts"
+    mkdir -p "$dir" "$dir/.tmp/virtualhosts"
 
     if { [[ ! -f "$called_fn_dir/.${FUNCNAME[0]}" ]] || [[ $DIFF == true ]]; } && [[ $FAVICON == true ]] && ! [[ $domain =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
         start_func "${FUNCNAME[0]}" "Favicon IP Lookup"
@@ -663,18 +663,13 @@ function favicon() {
             FAVUP_PY="python3"
         fi
 
-        timeout 10m "$FAVUP_PY" "${tools}/fav-up/favUp.py" -w "$domain" -sc -o "$dir/hosts/favicontest.json" 2>>"$LOGFILE" >/dev/null
+        timeout 10m "$FAVUP_PY" "${tools}/fav-up/favUp.py" -w "$domain" -sc -o "$dir/favicontest.json" 2>>"$LOGFILE" >/dev/null
 
-        if [[ -s "$dir/hosts/favicontest.json" ]]; then
-            jq -r 'try .found_ips' "$dir/hosts/favicontest.json" 2>>"$LOGFILE" | grep -v "not-found" >"$dir/hosts/favicontest.txt"
+        if [[ -s "$dir/favicontest.json" ]]; then
+            jq -r 'try .found_ips' "$dir/favicontest.json" 2>>"$LOGFILE" | grep -v "not-found" >"$dir/favicontest.txt"
         fi
 
-        if ! popd >/dev/null; then
-            printf "%b[!] Failed to return to previous directory in %s at line %s.%b\n" "$bred" "${FUNCNAME[0]}" "$LINENO" "$reset"
-            return 1
-        fi
-
-        end_func "Results are saved in $domain/hosts/favicontest.txt" "${FUNCNAME[0]}"
+        end_func "Results are saved in $domain/favicontest.txt" "${FUNCNAME[0]}"
     else
         if [[ $FAVICON == false ]]; then
             printf "\n%b[%s] %s skipped due to mode or configuration settings.%b\n" "$yellow" "$(date +'%Y-%m-%d %H:%M:%S %z')" "${FUNCNAME[0]}" "$reset"
@@ -687,16 +682,14 @@ function favicon() {
 }
 
 function zonetransfer() {
-    mkdir -p "$dir/subdomains"
-
     if { [[ ! -f "$called_fn_dir/.${FUNCNAME[0]}" ]] || [[ $DIFF == true ]]; } && [[ $ZONETRANSFER == true ]] && ! [[ $domain =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
         start_func "${FUNCNAME[0]}" "Zone transfer check"
 
         for ns in $(dig +short ns "$domain" 2>>"$LOGFILE"); do
-            dig axfr "${domain}" @"$ns" 2>>"$LOGFILE" | tee -a "$dir/subdomains/zonetransfer.txt" >/dev/null
+            dig axfr "${domain}" @"$ns" 2>>"$LOGFILE" | tee -a "$dir/zonetransfer.txt" >/dev/null
         done
 
-        end_func "Results are saved in $domain/subdomains/zonetransfer.txt" "${FUNCNAME[0]}"
+        end_func "Results are saved in $domain/zonetransfer.txt" "${FUNCNAME[0]}"
     else
         if [[ $ZONETRANSFER == false ]]; then
             printf "\n%b[%s] %s skipped due to mode or configuration settings.%b\n" "$yellow" "$(date +'%Y-%m-%d %H:%M:%S %z')" "${FUNCNAME[0]}" "$reset"

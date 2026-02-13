@@ -101,6 +101,8 @@ results/
         ├── domain_info_general.txt
         ├── dorks.txt
         ├── emails.txt
+        ├── favicontest.txt
+        ├── favicontest.json
         ├── gitdorks.txt
         ├── github_company_secrets.json
         ├── hudson_rock.txt
@@ -115,11 +117,7 @@ results/
         ├── swagger_leaks.txt
         ├── scopify.txt
         ├── spoof.txt
-        ├── hosts/
-        │     ├── favicontest.txt
-        ├── subdomains/
-        │     ├── zonetransfer.txt
-        └── results.tar.gz
+        └── zonetransfer.txt
 ```
 
 ## 🐞 Troubleshooting
