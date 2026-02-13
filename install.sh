@@ -165,6 +165,13 @@ install_system_packages() {
         exit 1
     fi
     pipx ensurepath
+    if ! command -v xnldorker &>/dev/null; then
+        echo -e "${GREEN}[INSTALL] xnldorker${RESET}"
+        pipx install xnldorker 2>&1 | tail -3
+        pipx inject xnldorker pyyaml 2>&1 | tail -3
+    else
+        echo -e "${YELLOW}[SKIP] xnldorker already installed${RESET}"
+    fi
 }
 
 # Install Go
@@ -198,7 +205,7 @@ install_gotools() {
     echo -e "${GREEN}[INFO] Installing Go tools${RESET}"
     export PATH="$HOME/go/bin:$HOME/.local/bin:$PATH"
     
-    local TOOLS=("gitdorks_go" "anew" "unfurl" "enumerepo" "porch-pirate")
+    local TOOLS=("gitdorks_go" "anew" "unfurl" "enumerepo")
     for TOOL in "${TOOLS[@]}"; do
         if [[ $FORCE == false ]] && command -v "$TOOL" &>/dev/null; then
             echo -e "${YELLOW}[SKIP] $TOOL already installed${RESET}"
@@ -252,6 +259,16 @@ install_gotools() {
             echo -e "${RED}[FAIL] misconfig-mapper${RESET}"
         fi
     fi
+
+    if [[ $FORCE == false ]] && command -v "porch-pirate" &>/dev/null; then
+        echo -e "${YELLOW}[SKIP] porch-pirate already installed${RESET}"
+    else
+        echo -e "${GREEN}[INSTALL] porch-pirate${RESET}"
+        pip3 install porch-pirate --break-system-packages 2>&1 | tail -5
+        if [[ $? -ne 0 ]]; then
+            echo -e "${RED}[FAIL] porch-pirate${RESET}"
+        fi
+    fi
 }
 
 # Install Python repos
@@ -262,7 +279,7 @@ install_repos() {
     local -A REPO_URLS=(
         ["dorks_hunter"]="https://github.com/six2dez/dorks_hunter"
         ["metagoofil"]="https://github.com/opsdisk/metagoofil"
-        ["SwaggerSpy"]="https://github.com/SecurityInfra/SwaggerSpy"
+        ["SwaggerSpy"]="https://github.com/UndeadSec/SwaggerSpy"
         ["EmailHarvester"]="https://github.com/maldevel/EmailHarvester"
         ["LeakSearch"]="https://github.com/JoelGMSec/LeakSearch"
         ["msftrecon"]="https://github.com/six2dez/msftrecon"
@@ -285,27 +302,47 @@ install_repos() {
         if [[ "$REPO" == "Scopify" ]]; then
             git clone --filter="blob:none" "${REPO_URLS[$REPO]}" "$TOOLS_DIR/$REPO" 2>&1 | tail -3
             if [[ -f "$TOOLS_DIR/$REPO/scopify.py" ]]; then
-                pip3 install -q -r "$TOOLS_DIR/$REPO/requirements.txt" 2>&1 | tail -3
+                cd "$TOOLS_DIR/$REPO" || continue
+                python3 -m venv venv 2>&1 | tail -3
+                ./venv/bin/pip install --upgrade pip 2>&1 | tail -3
+                ./venv/bin/pip install -r requirements.txt 2>&1 | tail -3
+                cd "$TOOLS_DIR" || exit 1
             fi
         elif [[ "$REPO" == "EmailHarvester" ]]; then
             git clone --filter="blob:none" "${REPO_URLS[$REPO]}" "$TOOLS_DIR/$REPO" 2>&1 | tail -3
             if [[ -f "$TOOLS_DIR/$REPO/requirements.txt" ]]; then
-                pip3 install -q -r "$TOOLS_DIR/$REPO/requirements.txt" 2>&1 | tail -3
+                cd "$TOOLS_DIR/$REPO" || continue
+                python3 -m venv venv 2>&1 | tail -3
+                ./venv/bin/pip install --upgrade pip 2>&1 | tail -3
+                ./venv/bin/pip install -r requirements.txt 2>&1 | tail -3
+                cd "$TOOLS_DIR" || exit 1
             fi
         elif [[ "$REPO" == "Spoofy" ]]; then
             git clone --filter="blob:none" "${REPO_URLS[$REPO]}" "$TOOLS_DIR/$REPO" 2>&1 | tail -3
             if [[ -f "$TOOLS_DIR/$REPO/requirements.txt" ]]; then
-                pip3 install -q -r "$TOOLS_DIR/$REPO/requirements.txt" 2>&1 | tail -3
+                cd "$TOOLS_DIR/$REPO" || continue
+                python3 -m venv venv 2>&1 | tail -3
+                ./venv/bin/pip install --upgrade pip 2>&1 | tail -3
+                ./venv/bin/pip install -r requirements.txt 2>&1 | tail -3
+                cd "$TOOLS_DIR" || exit 1
             fi
         elif [[ "$REPO" == "LeakSearch" ]]; then
             git clone --filter="blob:none" "${REPO_URLS[$REPO]}" "$TOOLS_DIR/$REPO" 2>&1 | tail -3
             if [[ -f "$TOOLS_DIR/$REPO/requirements.txt" ]]; then
-                pip3 install -q -r "$TOOLS_DIR/$REPO/requirements.txt" 2>&1 | tail -3
+                cd "$TOOLS_DIR/$REPO" || continue
+                python3 -m venv venv 2>&1 | tail -3
+                ./venv/bin/pip install --upgrade pip 2>&1 | tail -3
+                ./venv/bin/pip install -r requirements.txt 2>&1 | tail -3
+                cd "$TOOLS_DIR" || exit 1
             fi
         elif [[ "$REPO" == "cloud_enum" ]]; then
             git clone --filter="blob:none" "${REPO_URLS[$REPO]}" "$TOOLS_DIR/$REPO" 2>&1 | tail -3
             if [[ -f "$TOOLS_DIR/$REPO/requirements.txt" ]]; then
-                pip3 install -q -r "$TOOLS_DIR/$REPO/requirements.txt" 2>&1 | tail -3
+                cd "$TOOLS_DIR/$REPO" || continue
+                python3 -m venv venv 2>&1 | tail -3
+                ./venv/bin/pip install --upgrade pip 2>&1 | tail -3
+                ./venv/bin/pip install -r requirements.txt 2>&1 | tail -3
+                cd "$TOOLS_DIR" || exit 1
             fi
         elif [[ "$REPO" == "fav-up" ]]; then
             git clone --filter="blob:none" "${REPO_URLS[$REPO]}" "$TOOLS_DIR/$REPO" 2>&1 | tail -3

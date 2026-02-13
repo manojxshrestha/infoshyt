@@ -52,7 +52,7 @@ fi
 # Set directory structure
 dir="$PWD/results/$domain"
 called_fn_dir="$dir"
-mkdir -p "$dir/osint" "$dir/.tmp" 2>>"$LOGFILE"
+mkdir -p "$dir" "$dir/.tmp" 2>>"$LOGFILE"
 echo -e "${yellow}[$(date +'%Y-%m-%d %H:%M:%S %z')] [INFO] Using directory: $dir${reset}" >>"$LOGFILE"
 
 # Start function
@@ -92,12 +92,18 @@ echo -e "${yellow}[$(date +'%Y-%m-%d %H:%M:%S %z')] [START] OSINT scan for $doma
 # OSINT Functions
 
 function google_dorks() {
-    mkdir -p "$dir/osint"
+    mkdir -p "$dir"
 
     if { [[ ! -f "$called_fn_dir/.${FUNCNAME[0]}" ]] || [[ $DIFF == true ]]; } && [[ $GOOGLE_DORKS == true ]] && [[ $OSINT == true ]]; then
         start_func "${FUNCNAME[0]}" "Running: Google Dorks in process"
 
-        if ! "${tools}/dorks_hunter/venv/bin/python3" "${tools}/dorks_hunter/dorks_hunter.py" -d "$domain" -o "$dir/osint/dorks.txt" 2>>"$LOGFILE"; then
+        if [[ -f "${tools}/dorks_hunter/venv/bin/python3" ]]; then
+            DORKS_PY="${tools}/dorks_hunter/venv/bin/python3"
+        else
+            DORKS_PY="python3"
+        fi
+        
+        if ! "$DORKS_PY" "${tools}/dorks_hunter/dorks_hunter.py" -d "$domain" -o "$dir/dorks.txt" 2>>"$LOGFILE"; then
             printf "%b[!] dorks_hunter.py command failed.%b\n" "$bred" "$reset"
             return 1
         fi
@@ -112,19 +118,19 @@ function google_dorks() {
 }
 
 function github_dorks() {
-    mkdir -p "$dir/osint"
+    mkdir -p "$dir"
 
     if { [[ ! -f "$called_fn_dir/.${FUNCNAME[0]}" ]] || [[ $DIFF == true ]]; } && [[ $GITHUB_DORKS == true ]] && [[ $OSINT == true ]]; then
         start_func "${FUNCNAME[0]}" "Running: Github Dorks in process"
 
         if [[ -s $GITHUB_TOKENS ]]; then
             if [[ $DEEP == true ]]; then
-                if ! gitdorks_go -gd "${tools}/gitdorks_go/Dorks/medium_dorks.txt" -nws 20 -target "$domain" -tf "$GITHUB_TOKENS" -ew 3 | anew -q "$dir/osint/gitdorks.txt" 2>>"$LOGFILE"; then
+                if ! gitdorks_go -gd "${tools}/gitdorks_go/Dorks/medium_dorks.txt" -nws 20 -target "$domain" -tf "$GITHUB_TOKENS" -ew 3 | anew -q "$dir/gitdorks.txt" 2>>"$LOGFILE"; then
                     printf "%b[!] gitdorks_go command failed.%b\n" "$bred" "$reset"
                     return 1
                 fi
             else
-                if ! gitdorks_go -gd "${tools}/gitdorks_go/Dorks/smalldorks.txt" -nws 20 -target "$domain" -tf "$GITHUB_TOKENS" -ew 3 | anew -q "$dir/osint/gitdorks.txt" 2>>"$LOGFILE"; then
+                if ! gitdorks_go -gd "${tools}/gitdorks_go/Dorks/smalldorks.txt" -nws 20 -target "$domain" -tf "$GITHUB_TOKENS" -ew 3 | anew -q "$dir/gitdorks.txt" 2>>"$LOGFILE"; then
                     printf "%b[!] gitdorks_go command failed.%b\n" "$bred" "$reset"
                     return 1
                 fi
@@ -144,7 +150,7 @@ function github_dorks() {
 }
 
 function github_repos() {
-    mkdir -p "$dir/osint" "$dir/.tmp"
+    mkdir -p "$dir" "$dir/.tmp"
 
     if { [[ ! -f "$called_fn_dir/.${FUNCNAME[0]}" ]] || [[ $DIFF == true ]]; } && [[ $GITHUB_REPOS == true ]] && [[ $OSINT == true ]]; then
         start_func "${FUNCNAME[0]}" "Github Repos analysis in process"
@@ -203,7 +209,7 @@ function github_repos() {
             fi
 
             if [[ -d "$dir/.tmp/github/" ]]; then
-                if ! cat "$dir/.tmp/github/"* 2>/dev/null | jq -c | jq -r >"$dir/osint/github_company_secrets.json" 2>>"$LOGFILE"; then
+                if ! cat "$dir/.tmp/github/"* 2>/dev/null | jq -c | jq -r >"$dir/github_company_secrets.json" 2>>"$LOGFILE"; then
                     printf "%b[!] Error combining results.%b\n" "$bred" "$reset"
                     return 1
                 fi
@@ -227,22 +233,28 @@ function github_repos() {
 }
 
 function metadata() {
-    mkdir -p "$dir/osint" "$dir/.tmp"
+    mkdir -p "$dir" "$dir/.tmp"
 
     # Check if the function should run
     if { [[ ! -f "$called_fn_dir/.${FUNCNAME[0]}" ]] || [[ $DIFF == true ]]; } && [[ $METADATA == true ]] && [[ $OSINT == true ]] && ! [[ $domain =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
         start_func "${FUNCNAME[0]}" "Scanning metadata in public files"
 
         mkdir -p "$dir/.tmp/metagoofil_${domain}/" 2>>"$LOGFILE"
-        if [ ! -f "${tools}/metagoofil/venv/bin/python3" ] || [ ! -f "${tools}/metagoofil/metagoofil.py" ]; then
-            printf "%b[!] metagoofil.py or its Python environment not found at ${tools}/metagoofil/.%b\n" "$bred" "$reset" >>"$LOGFILE"
+        if [[ -f "${tools}/metagoofil/venv/bin/python3" ]]; then
+            METAGOOFIL_PY="${tools}/metagoofil/venv/bin/python3"
+        else
+            METAGOOFIL_PY="python3"
+        fi
+        
+        if [[ ! -f "${tools}/metagoofil/metagoofil.py" ]]; then
+            printf "%b[!] metagoofil.py not found at ${tools}/metagoofil/.%b\n" "$bred" "$reset" >>"$LOGFILE"
             return 1
         fi
-        if ! "${tools}/metagoofil/venv/bin/python3" "${tools}/metagoofil/metagoofil.py" -d "$domain" -t pdf,docx,xlsx -l 10 -w -o "$dir/.tmp/metagoofil_${domain}/" 2>>"$LOGFILE" >/dev/null; then
+        
+        if ! "$METAGOOFIL_PY" "${tools}/metagoofil/metagoofil.py" -d "$domain" -t pdf,docx,xlsx -l 10 -w -o "$dir/.tmp/metagoofil_${domain}/" 2>>"$LOGFILE" >/dev/null; then
             printf "%b[!] metagoofil.py command failed (exit code: $?). Check ${tools}/metagoofil/requirements.txt for missing dependencies.%b\n" "$bred" "$reset" >>"$LOGFILE"
-            return 1
         fi
-        if ! exiftool -r "$dir/.tmp/metagoofil_${domain}/*" 2>>"$LOGFILE" | tee /dev/null | egrep -i "Author|Creator|Email|Producer|Template" | sort -u | anew -q "$dir/osint/metadata_results.txt" 2>>"$LOGFILE"; then
+        if ! exiftool -r "$dir/.tmp/metagoofil_${domain}/*" 2>>"$LOGFILE" | tee /dev/null | egrep -i "Author|Creator|Email|Producer|Template" | sort -u | anew -q "$dir/metadata_results.txt" 2>>"$LOGFILE"; then
             printf "%b[!] exiftool processing failed.%b\n" "$bred" "$reset" >>"$LOGFILE"
             return 1
         fi
@@ -260,40 +272,39 @@ function metadata() {
 }
 
 function apileaks() {
-    mkdir -p "$dir/osint"
+    mkdir -p "$dir"
 
     if { [[ ! -f "$called_fn_dir/.${FUNCNAME[0]}" ]] || [[ $DIFF == true ]]; } && [[ $API_LEAKS == true ]] && [[ $OSINT == true ]] && ! [[ $domain =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
         start_func "${FUNCNAME[0]}" "Scanning for leaks in public API directories"
 
-        if ! porch-pirate -s "$domain" -l 25 --dump 2>>"$LOGFILE" >"$dir/osint/postman_leaks.txt"; then
-            printf "%b[!] porch-pirate command failed.%b\n" "$bred" "$reset"
-            return 1
-        fi
+        porch-pirate -s "$domain" -l 25 --dump 2>>"$LOGFILE" >"$dir/postman_leaks.txt" || true
 
         if ! pushd "${tools}/SwaggerSpy" >/dev/null; then
             printf "%b[!] Failed to change directory to %s in %s at line %s.%b\n" "$bred" "${tools}/SwaggerSpy" "${FUNCNAME[0]}" "$LINENO" "$reset"
             return 1
         fi
 
-        if ! "${tools}/SwaggerSpy/venv/bin/python3" swaggerspy.py "$domain" 2>>"$LOGFILE" | grep -i "[*]\|URL" >"$dir/osint/swagger_leaks.txt"; then
-            printf "%b[!] swaggerspy.py command failed.%b\n" "$bred" "$reset"
-            popd >/dev/null || true
-            return 1
+        if [[ -f "${tools}/SwaggerSpy/venv/bin/python3" ]]; then
+            SWAGGER_PY="${tools}/SwaggerSpy/venv/bin/python3"
+        else
+            SWAGGER_PY="python3"
         fi
+
+        timeout 30 "$SWAGGER_PY" swaggerspy.py "$domain" 2>>"$LOGFILE" | grep -i "[*]\|URL" >"$dir/swagger_leaks.txt" || true
 
         if ! popd >/dev/null; then
             printf "%b[!] Failed to return to the previous directory in %s at line %s.%b\n" "$bred" "${FUNCNAME[0]}" "$LINENO" "$reset"
             return 1
         fi
 
-        if [[ -s "$dir/osint/postman_leaks.txt" ]]; then
-            if ! trufflehog filesystem "$dir/osint/postman_leaks.txt" -j 2>/dev/null | jq -c | anew -q "$dir/osint/postman_leaks_trufflehog.json" 2>>"$LOGFILE"; then
+        if [[ -s "$dir/postman_leaks.txt" ]]; then
+            if ! trufflehog filesystem "$dir/postman_leaks.txt" -j 2>/dev/null | jq -c | anew -q "$dir/postman_leaks_trufflehog.json" 2>>"$LOGFILE"; then
                 printf "%b[!] trufflehog (postman) failed.%b\n" "$bred" "$reset"
             fi
         fi
 
-        if [[ -s "$dir/osint/swagger_leaks.txt" ]]; then
-            if ! trufflehog filesystem "$dir/osint/swagger_leaks.txt" -j 2>/dev/null | jq -c | anew -q "$dir/osint/swagger_leaks_trufflehog.json" 2>>"$LOGFILE"; then
+        if [[ -s "$dir/swagger_leaks.txt" ]]; then
+            if ! trufflehog filesystem "$dir/swagger_leaks.txt" -j 2>/dev/null | jq -c | anew -q "$dir/swagger_leaks_trufflehog.json" 2>>"$LOGFILE"; then
                 printf "%b[!] trufflehog (swagger) failed.%b\n" "$bred" "$reset"
             fi
         fi
@@ -311,21 +322,39 @@ function apileaks() {
 }
 
 function emails() {
-    mkdir -p "$dir/.tmp" "$dir/osint"
+    mkdir -p "$dir/.tmp"
 
     if { [[ ! -f "$called_fn_dir/.${FUNCNAME[0]}" ]] || [[ $DIFF == true ]]; } && [[ $EMAILS == true ]] && [[ $OSINT == true ]] && ! [[ $domain =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
         start_func "${FUNCNAME[0]}" "Searching for emails/users/passwords leaks"
 
-        if ! "${tools}/EmailHarvester/venv/bin/python3" "${tools}/EmailHarvester/EmailHarvester.py" -d "$domain" -e all -l 20 2>>"$LOGFILE" | anew -q "$dir/.tmp/EmailHarvester.txt"; then
+        if ! pushd "${tools}/EmailHarvester" >/dev/null; then
+            printf "%b[!] Failed to change directory to %s in %s at line %s.%b\n" "$bred" "${tools}/EmailHarvester" "${FUNCNAME[0]}" "$LINENO" "$reset"
+            return 1
+        fi
+
+        if [[ -f "${tools}/EmailHarvester/venv/bin/python3" ]]; then
+            EMAIL_PY="${tools}/EmailHarvester/venv/bin/python3"
+        else
+            EMAIL_PY="python3"
+        fi
+
+        if ! "$EMAIL_PY" EmailHarvester.py -d "$domain" -e all -l 20 2>>"$LOGFILE" | anew -q "$dir/.tmp/EmailHarvester.txt"; then
             printf "%b[!] EmailHarvester.py command failed.%b\n" "$bred" "$reset"
+            popd >/dev/null || true
             return 1
         fi
 
         if [[ -s "$dir/.tmp/EmailHarvester.txt" ]]; then
-            if ! grep "@" "$dir/.tmp/EmailHarvester.txt" | anew -q "$dir/osint/emails.txt" 2>>"$LOGFILE"; then
+            if ! grep "@" "$dir/.tmp/EmailHarvester.txt" | anew -q "$dir/emails.txt" 2>>"$LOGFILE"; then
                 printf "%b[!] email grep failed.%b\n" "$bred" "$reset"
+                popd >/dev/null || true
                 return 1
             fi
+        fi
+
+        if ! popd >/dev/null; then
+            printf "%b[!] Failed to popd in %s at line %s.%b\n" "$bred" "${FUNCNAME[0]}" "$LINENO" "$reset"
+            return 1
         fi
 
         if ! pushd "${tools}/LeakSearch" >/dev/null; then
@@ -333,7 +362,13 @@ function emails() {
             return 1
         fi
 
-        if ! "${tools}/LeakSearch/venv/bin/python3" LeakSearch.py -k "$domain" -o "$dir/.tmp/passwords.txt" 1>>"$LOGFILE"; then
+        if [[ -f "${tools}/LeakSearch/venv/bin/python3" ]]; then
+            LEAPKSEARCH_PY="${tools}/LeakSearch/venv/bin/python3"
+        else
+            LEAPKSEARCH_PY="python3"
+        fi
+
+        if ! "$LEAPKSEARCH_PY" LeakSearch.py -k "$domain" -o "$dir/.tmp/passwords.txt" 1>>"$LOGFILE"; then
             printf "%b[!] LeakSearch.py command failed.%b\n" "$bred" "$reset"
             popd >/dev/null || true
             return 1
@@ -345,7 +380,7 @@ function emails() {
         fi
 
         if [[ -s "$dir/.tmp/passwords.txt" ]]; then
-            if ! anew -q "$dir/osint/passwords.txt" <"$dir/.tmp/passwords.txt" 2>>"$LOGFILE"; then
+            if ! anew -q "$dir/passwords.txt" <"$dir/.tmp/passwords.txt" 2>>"$LOGFILE"; then
                 printf "%b[!] password anew failed.%b\n" "$bred" "$reset"
                 return 1
             fi
@@ -364,22 +399,36 @@ function emails() {
 }
 
 function domain_info() {
-    mkdir -p "$dir/osint"
+    mkdir -p "$dir"
 
     if { [[ ! -f "$called_fn_dir/.${FUNCNAME[0]}" ]] || [[ $DIFF == true ]]; } && [[ $DOMAIN_INFO == true ]] && [[ $OSINT == true ]] && ! [[ $domain =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
         start_func "${FUNCNAME[0]}" "Searching domain info (whois, registrant name/email domains)"
 
-        if ! whois "$domain" >"$dir/osint/domain_info_general.txt" 2>>"$LOGFILE"; then
+        if ! whois "$domain" >"$dir/domain_info_general.txt" 2>>"$LOGFILE"; then
             printf "%b[!] whois command failed.%b\n" "$bred" "$reset"
             return 1
         fi
-        if ! "${tools}/msftrecon/venv/bin/python3" "${tools}/msftrecon/msftrecon/msftrecon.py" -d "$domain" 2>>"$LOGFILE" >"$dir/osint/azure_tenant_domains.txt"; then
+        
+        if [[ -f "${tools}/msftrecon/venv/bin/python3" ]]; then
+            MSFTRECON_PY="${tools}/msftrecon/venv/bin/python3"
+        else
+            MSFTRECON_PY="python3"
+        fi
+        
+        if ! "$MSFTRECON_PY" "${tools}/msftrecon/msftrecon/msftrecon.py" -d "$domain" 2>>"$LOGFILE" >"$dir/azure_tenant_domains.txt"; then
             printf "%b[!] msftrecon.py command failed.%b\n" "$bred" "$reset"
             return 1
         fi
 
         company_name=$(unfurl format %r <<<"$domain")
-        if ! "${tools}/Scopify/venv/bin/python3" "${tools}/Scopify/scopify.py" -c "$company_name" >"$dir/osint/scopify.txt" 2>>"$LOGFILE"; then
+        
+        if [[ -f "${tools}/Scopify/venv/bin/python3" ]]; then
+            SCOPIFY_PY="${tools}/Scopify/venv/bin/python3"
+        else
+            SCOPIFY_PY="python3"
+        fi
+        
+        if ! "$SCOPIFY_PY" "${tools}/Scopify/scopify.py" -c "$company_name" >"$dir/scopify.txt" 2>>"$LOGFILE"; then
             printf "%b[!] scopify.py command failed.%b\n" "$bred" "$reset"
             return 1
         fi
@@ -397,28 +446,14 @@ function domain_info() {
 }
 
 function third_party_misconfigs() {
-    mkdir -p "$dir/osint"
+    mkdir -p "$dir"
 
     if { [[ ! -f "$called_fn_dir/.${FUNCNAME[0]}" ]] || [[ $DIFF == true ]]; } && [[ $THIRD_PARTIES == true ]] && [[ $OSINT == true ]] && ! [[ $domain =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
         start_func "${FUNCNAME[0]}" "Searching for third parties misconfigurations"
 
         company_name=$(unfurl format %r <<<"$domain")
 
-        if ! pushd "${tools}/misconfig-mapper" >/dev/null; then
-            printf "%b[!] Failed to change directory to %s in %s at line %s.%b\n" "$bred" "${tools}/misconfig-mapper" "${FUNCNAME[0]}" "$LINENO" "$reset"
-            return 1
-        fi
-
-        if ! misconfig-mapper -target "$company_name" -service "*" 2>&1 | grep -v "\-\]" | grep -v "Failed" >"$dir/osint/3rdparts_misconfigurations.txt" 2>>"$LOGFILE"; then
-            printf "%b[!] misconfig-mapper command failed.%b\n" "$bred" "$reset"
-            popd >/dev/null || true
-            return 1
-        fi
-
-        if ! popd >/dev/null; then
-            printf "%b[!] Failed to return to previous directory in %s at line %s.%b\n" "$bred" "${FUNCNAME[0]}" "$LINENO" "$reset"
-            return 1
-        fi
+        timeout 60 misconfig-mapper -target "$company_name" -service "*" 2>&1 | grep -v "\-\]" | grep -v "Failed" >"$dir/3rdparts_misconfigurations.txt" 2>>"$LOGFILE" || true
 
         end_func "Results are saved in $domain/osint/3rdparts_misconfigurations.txt" "${FUNCNAME[0]}"
     else
@@ -433,7 +468,7 @@ function third_party_misconfigs() {
 }
 
 function spoof() {
-    mkdir -p "$dir/osint"
+    mkdir -p "$dir"
 
     if { [[ ! -f "$called_fn_dir/.${FUNCNAME[0]}" ]] || [[ $DIFF == true ]]; } && [[ $SPOOF == true ]] && [[ $OSINT == true ]] && ! [[ $domain =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
         start_func "${FUNCNAME[0]}" "Searching for spoofable domains"
@@ -443,7 +478,13 @@ function spoof() {
             return 1
         fi
 
-        if ! "${tools}/Spoofy/venv/bin/python3" spoofy.py -d "$domain" >"$dir/osint/spoof.txt" 2>>"$LOGFILE"; then
+        if [[ -f "${tools}/Spoofy/venv/bin/python3" ]]; then
+            SPOOFY_PY="${tools}/Spoofy/venv/bin/python3"
+        else
+            SPOOFY_PY="python3"
+        fi
+
+        if ! "$SPOOFY_PY" spoofy.py -d "$domain" >"$dir/spoof.txt" 2>>"$LOGFILE"; then
             printf "%b[!] spoofy.py command failed.%b\n" "$bred" "$reset"
             popd >/dev/null || true
             return 1
@@ -467,23 +508,23 @@ function spoof() {
 }
 
 function ip_info() {
-    mkdir -p "$dir/osint"
+    mkdir -p "$dir"
 
     if { [[ ! -f "$called_fn_dir/.${FUNCNAME[0]}" ]] || [[ $DIFF == true ]]; } && [[ $IP_INFO == true ]] && [[ $OSINT == true ]] && [[ $domain =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
         start_func "${FUNCNAME[0]}" "Searching IP info"
 
         if [[ -n $WHOISXML_API ]]; then
-            if ! curl -s "https://reverse-ip.whoisxmlapi.com/api/v1?apiKey=${WHOISXML_API}&ip=${domain}" | jq -r '.result[].name' 2>>"$LOGFILE" | sed -e "s/$/ ${domain}/" | anew -q "$dir/osint/ip_${domain}_relations.txt" 2>>"$LOGFILE"; then
+            if ! curl -s "https://reverse-ip.whoisxmlapi.com/api/v1?apiKey=${WHOISXML_API}&ip=${domain}" | jq -r '.result[].name' 2>>"$LOGFILE" | sed -e "s/$/ ${domain}/" | anew -q "$dir/ip_${domain}_relations.txt" 2>>"$LOGFILE"; then
                 printf "%b[!] reverse-ip lookup failed.%b\n" "$bred" "$reset"
                 return 1
             fi
 
-            if ! curl -s "https://www.whoisxmlapi.com/whoisserver/WhoisService?apiKey=${WHOISXML_API}&domainName=${domain}&outputFormat=json&da=2®istryRawText=1®istrarRawText=1&ignoreRawTexts=1" | jq 2>>"$LOGFILE" | anew -q "$dir/osint/ip_${domain}_whois.txt" 2>>"$LOGFILE"; then
+            if ! curl -s "https://www.whoisxmlapi.com/whoisserver/WhoisService?apiKey=${WHOISXML_API}&domainName=${domain}&outputFormat=json&da=2®istryRawText=1®istrarRawText=1&ignoreRawTexts=1" | jq 2>>"$LOGFILE" | anew -q "$dir/ip_${domain}_whois.txt" 2>>"$LOGFILE"; then
                 printf "%b[!] whois lookup failed.%b\n" "$bred" "$reset"
                 return 1
             fi
 
-            if ! curl -s "https://ip-geolocation.whoisxmlapi.com/api/v1?apiKey=${WHOISXML_API}&ipAddress=${domain}" | jq -r '.ip,.location' 2>>"$LOGFILE" | anew -q "$dir/osint/ip_${domain}_location.txt" 2>>"$LOGFILE"; then
+            if ! curl -s "https://ip-geolocation.whoisxmlapi.com/api/v1?apiKey=${WHOISXML_API}&ipAddress=${domain}" | jq -r '.ip,.location' 2>>"$LOGFILE" | anew -q "$dir/ip_${domain}_location.txt" 2>>"$LOGFILE"; then
                 printf "%b[!] geolocation lookup failed.%b\n" "$bred" "$reset"
                 return 1
             fi
@@ -504,7 +545,7 @@ function ip_info() {
 }
 
 function mail_hygiene() {
-    mkdir -p "$dir/osint"
+    mkdir -p "$dir"
 
     if { [[ ! -f "$called_fn_dir/.${FUNCNAME[0]}" ]] || [[ $DIFF == true ]]; } && [[ $MAIL_HYGIENE == true ]] && [[ $OSINT == true ]] && ! [[ $domain =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
         start_func "${FUNCNAME[0]}" "Mail hygiene (SPF/DMARC)"
@@ -515,7 +556,7 @@ function mail_hygiene() {
             dig +short TXT "$domain" | sed 's/^/  /'
             printf "\nDMARC record:\n"
             dig +short TXT "_dmarc.$domain" | sed 's/^/  /'
-        } >"$dir/osint/mail_hygiene.txt" 2>>"$LOGFILE"
+        } >"$dir/mail_hygiene.txt" 2>>"$LOGFILE"
 
         end_func "Results are saved in $domain/osint/mail_hygiene.txt" "${FUNCNAME[0]}"
     else
@@ -530,13 +571,13 @@ function mail_hygiene() {
 }
 
 function cloud_enum_scan() {
-    mkdir -p "$dir/osint"
+    mkdir -p "$dir"
 
     if { [[ ! -f "$called_fn_dir/.${FUNCNAME[0]}" ]] || [[ $DIFF == true ]]; } && [[ $CLOUD_ENUM == true ]] && [[ $OSINT == true ]] && ! [[ $domain =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
         start_func "${FUNCNAME[0]}" "Cloud storage enumeration"
 
         company_name=$(echo "$domain" | unfurl format %r)
-        cloud_enum -k "$company_name" -k "$domain" -k "${domain%%.*}" 2>>"$LOGFILE" | anew -q "$dir/osint/cloud_enum.txt"
+        cloud_enum -k "$company_name" -k "$domain" -k "${domain%%.*}" 2>>"$LOGFILE" | anew -q "$dir/cloud_enum.txt"
 
         end_func "Results are saved in $domain/osint/cloud_enum.txt" "${FUNCNAME[0]}"
     else
@@ -561,7 +602,13 @@ function favicon() {
             return 1
         fi
 
-        timeout 10m "${tools}/fav-up/venv/bin/python3" "${tools}/fav-up/favUp.py" -w "$domain" -sc -o "$dir/hosts/favicontest.json" 2>>"$LOGFILE" >/dev/null
+        if [[ -f "${tools}/fav-up/venv/bin/python3" ]]; then
+            FAVUP_PY="${tools}/fav-up/venv/bin/python3"
+        else
+            FAVUP_PY="python3"
+        fi
+
+        timeout 10m "$FAVUP_PY" "${tools}/fav-up/favUp.py" -w "$domain" -sc -o "$dir/hosts/favicontest.json" 2>>"$LOGFILE" >/dev/null
 
         if [[ -s "$dir/hosts/favicontest.json" ]]; then
             jq -r 'try .found_ips' "$dir/hosts/favicontest.json" 2>>"$LOGFILE" | grep -v "not-found" >"$dir/hosts/favicontest.txt"
@@ -607,22 +654,22 @@ function zonetransfer() {
 }
 
 function hudson_rock() {
-    mkdir -p "$dir/osint"
+    mkdir -p "$dir"
 
     if { [[ ! -f "$called_fn_dir/.${FUNCNAME[0]}" ]] || [[ $DIFF == true ]]; } && [[ $HUDSON_ROCK == true ]] && [[ $OSINT == true ]] && ! [[ $domain =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
         start_func "${FUNCNAME[0]}" "Searching Hudson Rock Infostealer Intelligence"
 
         # Domain search
-        curl -s "https://cavalier.hudsonrock.com/api/json/v2/osint-tools/search-by-domain?domain=${domain}" >"$dir/osint/hudson_rock_domain.json" 2>>"$LOGFILE"
+        curl -s "https://cavalier.hudsonrock.com/api/json/v2/osint-tools/search-by-domain?domain=${domain}" >"$dir/hudson_rock_domain.json" 2>>"$LOGFILE"
 
         # Parse and save readable output
-        if [[ -s "$dir/osint/hudson_rock_domain.json" ]]; then
+        if [[ -s "$dir/hudson_rock_domain.json" ]]; then
             {
                 echo "=== Hudson Rock Infostealer Intelligence ==="
                 echo "Domain: $domain"
                 echo ""
-                jq -r '.[] | "Compromised Credentials Found: \(.infected_computers // 0)\nStealer Type: \(.stealer_type // "N/A")\nFirst Seen: \(.first_seen // "N/A")\nLast Seen: \(.last_seen // "N/A")\n"' "$dir/osint/hudson_rock_domain.json" 2>>"$LOGFILE" || true
-            } >"$dir/osint/hudson_rock.txt" 2>>"$LOGFILE"
+                jq -r '.[] | "Compromised Credentials Found: \(.infected_computers // 0)\nStealer Type: \(.stealer_type // "N/A")\nFirst Seen: \(.first_seen // "N/A")\nLast Seen: \(.last_seen // "N/A")\n"' "$dir/hudson_rock_domain.json" 2>>"$LOGFILE" || true
+            } >"$dir/hudson_rock.txt" 2>>"$LOGFILE"
         fi
 
         end_func "Results are saved in $domain/osint/hudson_rock_domain.json and hudson_rock.txt" "${FUNCNAME[0]}"

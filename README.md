@@ -89,24 +89,23 @@ Results will be saved in:
 ```
 results/
   └── $domain/
-        ├── osint/
-        │     ├── 3rdparts_misconfigurations.txt
-        │     ├── azure_tenant_domains.txt
-        │     ├── cloud_enum.txt
-        │     ├── domain_info_general.txt
-        │     ├── dorks.txt
-        │     ├── emails.txt
-        │     ├── gitdorks.txt
-        │     ├── github_company_secrets.json
-        │     ├── hudson_rock_domain.json
-        │     ├── hudson_rock.txt
-        │     ├── mail_hygiene.txt
-        │     ├── metadata_results.txt
-        │     ├── passwords.txt
-        │     ├── postman_leaks.txt
-        │     ├── swagger_leaks.txt
-        │     ├── scopify.txt
-        │     ├── spoof.txt
+        ├── 3rdparts_misconfigurations.txt
+        ├── azure_tenant_domains.txt
+        ├── cloud_enum.txt
+        ├── domain_info_general.txt
+        ├── dorks.txt
+        ├── emails.txt
+        ├── gitdorks.txt
+        ├── github_company_secrets.json
+        ├── hudson_rock_domain.json
+        ├── hudson_rock.txt
+        ├── mail_hygiene.txt
+        ├── metadata_results.txt
+        ├── passwords.txt
+        ├── postman_leaks.txt
+        ├── swagger_leaks.txt
+        ├── scopify.txt
+        ├── spoof.txt
         ├── hosts/
         │     ├── favicontest.txt
         ├── subdomains/
